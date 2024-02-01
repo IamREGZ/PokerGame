@@ -4,7 +4,7 @@ namespace PokerGame
 {
     class Program
     {
-        #region Properties
+        #region Fields
         static Card[] cards;
         static readonly Random rand = new Random();
         #endregion
@@ -183,31 +183,30 @@ namespace PokerGame
         {
             Console.WriteLine("VALID CARD VALUES: 1-13 (1 = A; 11 = J; 12 = Q; 13 = K)");
             Console.WriteLine("VALID CARD SUITS: C (Club), D (Diamond), H (Heart), S (Spade)");
+            Console.WriteLine();
 
-            for (int i = 0; i < 5; i++)
+            for (int i = 0; i < cards.Length; i++)
             {
-                bool isValid = false;
+                string cardValue, cardSuit;
 
-                while (!isValid)
+                Console.Write($"Enter card value for Card #{i + 1}: ");
+                cardValue = Console.ReadLine().Trim();
+
+                Console.Write($"Enter card suit for Card #{i + 1}: ");
+                cardSuit = Console.ReadLine().ToUpper().Trim();
+
+                if (ValidateCard(cardValue, cardSuit))
                 {
-                    string cardValue, cardSuit;
-
-                    Console.Write($"Enter card value for Card #{i + 1}: ");
-                    cardValue = Console.ReadLine().Trim();
-
-                    Console.Write($"Enter card suit for Card #{i + 1}: ");
-                    cardSuit = Console.ReadLine().ToUpper().Trim();
-
-                    isValid = ValidateCard(cardValue, cardSuit);
-
-                    if (isValid)
-                    {
-                        // Add Card object to the array.
-                        cards[i] = new Card(ConvertValue(cardValue), cardSuit[0].ToString());
-                    }
-
-                    Console.WriteLine();
+                    // Add Card object to the array.
+                    cards[i] = new Card(ConvertValue(Convert.ToInt32(cardValue)), cardSuit[0].ToString());
                 }
+                else
+                {
+                    // If invalid, decrement the counter to try entering the current card again.
+                    i--;
+                }
+
+                Console.WriteLine();
             }
         }
         #endregion
@@ -222,7 +221,7 @@ namespace PokerGame
 
             for (int i = 0; i < length; i++)
             {
-                string card = $"{ConvertValue((rand.Next(1, 14)).ToString())}|{ConvertSuit(rand.Next(1, 5))}";
+                string card = $"{ConvertValue((rand.Next(1, 14)))}|{ConvertSuit(rand.Next(1, 5))}";
 
                 if (i == 0)
                 {
@@ -257,76 +256,73 @@ namespace PokerGame
             Console.Write("Your cards: ");
             foreach (Card card in cards)
             {
-                Console.Write($"{card.GetCardValue()}{card.GetCardSuit()} ");
+                Console.Write($"{card.CardValue}{card.CardSuit} ");
             }
 
-            Console.Write($"({RankPokerHand()})");
-            Console.ReadLine();
+            Console.WriteLine($"({ConvertPokerHand(RankPokerHand())})");
+            Console.ReadKey();
         }
         #endregion
 
         #region Poker Hand Methods
         // Function to determine the poker hand.
-        private static string RankPokerHand()
+        private static int RankPokerHand()
         {
             bool isStraight = CheckForStraight();
             bool isFlush = CheckForFlush();
             string[] valueCounters = CountValueCards();
-            string highestCard = GetCardHierarchy(isStraight, valueCounters)[0];
 
             if (isStraight && isFlush)
             {
-                // 1. Royal Flush - straight flush + highest card is A
-                // 2. Straight Flush - combination of straight and flush
-                return (highestCard == "A") ? "Royal Flush" : "Straight Flush";
+                // Royal Flush (if highest card is A) or Straight Flush
+                return (GetCardHierarchy(isStraight, valueCounters)[0] == "A") ? 10 : 9;
             }
             else if (CheckForMultiCards(valueCounters, 4) == 1)
             {
-                // 3. Four of a Kind - hand with four cards with same values
-                return "Four of a Kind";
+                // Four of a Kind
+                return 8;
             }
             else if (CheckForMultiCards(valueCounters, 3) == 1 && CheckForMultiCards(valueCounters, 2) == 1)
             {
-                // 4. Full House - three cards with same values + two cards with same values
-                return "Full House";
+                // Full House
+                return 7;
             }
             else if (isFlush)
             {
-                // 5. Flush - all cards have one common suit
-                return "Flush";
+                // Flush
+                return 6;
             }
             else if (isStraight)
             {
-                // 6. Straight - all cards in a succession (A-5 up to 10-A)
-                return "Straight";
+                // Straight
+                return 5;
             }
             else if (CheckForMultiCards(valueCounters, 3) == 1)
             {
-                // 7. Three of a Kind - hand with three cards with same values
-                return "Three of a Kind";
+                // Three of a Kind
+                return 4;
             }
             else if (CheckForMultiCards(valueCounters, 2) == 2)
             {
-                // 8. Two Pairs - two sets of paired cards
-                return "Two Pairs";
+                // Two Pairs
+                return 3;
             }
             else if (CheckForMultiCards(valueCounters, 2) == 1)
             {
-                // 9. One Pair - one set of paired cards
-                return "One Pair";
+                // One Pair
+                return 2;
             }
             else
             {
-                // 10. High Card - get the highest card
-                return $"High Card - {highestCard}";
+                // High Card
+                return 1;
             }
         }
 
         // Function to check if the hand is straight.
         private static bool CheckForStraight()
         {
-            int currentValue = 0;  // Starting value + 1.
-            int endValue = 0;  // Expected highest value.
+            int currentValue = 0, endValue = 0;
 
             // Check if there's an ace (can be the lowest or highest).
             if (SearchCardValue("A"))
@@ -354,7 +350,7 @@ namespace PokerGame
                 // If there's no ace, search for the lowest card value.
                 for (int i = 2; i <= 13; i++)
                 {
-                    if (SearchCardValue(ConvertValue(i.ToString())))
+                    if (SearchCardValue(ConvertValue(i)))
                     {
                         currentValue = i + 1;
                         endValue = i + 4;
@@ -366,7 +362,7 @@ namespace PokerGame
             while (currentValue <= endValue)
             {
                 // Loop ends if the next expected card value didn't match or all five cards are in a succession.
-                if (SearchCardValue(ConvertValue(currentValue.ToString())))
+                if (SearchCardValue(ConvertValue(currentValue)))
                 {
                     currentValue++;
                 }
@@ -383,12 +379,12 @@ namespace PokerGame
         private static bool CheckForFlush()
         {
             // Get the suit from the first card.
-            string suit = cards[0].GetCardSuit();
+            string suit = cards[0].CardSuit;
 
             foreach (Card card in cards)
             {
                 // If there's a mismatch, it is not a flush.
-                if (card.GetCardSuit() != suit) return false;
+                if (card.CardSuit != suit) return false;
             }
 
             return true;
@@ -397,18 +393,18 @@ namespace PokerGame
         // Function to count number of cards with that value.
         private static string[] CountValueCards()
         {
-            string[] valueCounters = { "", "", "", "", "" };
-            int valueIndex = 0, foundCards = 0;
+            string valueCounters = "";
+            int foundCards = 0;
 
             // Count cards per value.
             for (int i = 1; i <= 13; i++)
             {
                 int valueCount = 0;  // Initial/reset value
-                string cardValue = ConvertValue(i.ToString());
+                string cardValue = ConvertValue(i);
 
                 foreach (Card card in cards)
                 {
-                    if (card.GetCardValue() == cardValue)
+                    if (card.CardValue == cardValue)
                     {
                         valueCount++;  // Current card value to be searched
                         foundCards++;  // Cards searched
@@ -418,15 +414,14 @@ namespace PokerGame
                 // Add only if there's at least one card value found.
                 if (valueCount > 0)
                 {
-                    valueCounters[valueIndex] = $"{cardValue}|{valueCount}";
-                    valueIndex++;
+                    valueCounters = $"{(valueCounters.Length > 0 ? $"{valueCounters}," : "")}{cardValue}|{valueCount}";
                 }
 
                 // Break the loop once all five cards are searched.
                 if (foundCards == 5) break;
             }
 
-            return valueCounters;
+            return valueCounters.Split(',');
         }
 
         // Function to get the hierarchy of card values.
@@ -457,7 +452,7 @@ namespace PokerGame
                 // Getting the card value from King to Ace (given the conditions above weren't satisfied).
                 for (int j = 13; j >= 1; j--)
                 {
-                    string cardValue = ConvertValue(j.ToString());
+                    string cardValue = ConvertValue(j);
 
                     if (valueCountJoined.Contains($"{cardValue}|{i}"))
                     {
@@ -483,8 +478,6 @@ namespace PokerGame
 
             foreach (string cardValueCount in valueCounters)
             {
-                if (cardValueCount == "") break;
-
                 if (Convert.ToInt32(cardValueCount.Split('|')[1]) == valueCount) totalCount++;
             }
 
@@ -496,7 +489,7 @@ namespace PokerGame
         {
             foreach (Card card in cards)
             {
-                if (card.GetCardValue() == value) return true;
+                if (card.CardValue == value) return true;
             }
 
             return false;
@@ -514,7 +507,7 @@ namespace PokerGame
             }
             else if (!int.TryParse(command, out _))
             {
-                Console.WriteLine("ERROR: Command must be a numeric value.");
+                Console.WriteLine("ERROR: Invalid command.");
                 return false;
             }
             else if (Convert.ToInt32(command) < 0 || Convert.ToInt32(command) > menuOptions)
@@ -540,12 +533,12 @@ namespace PokerGame
             else if (!int.TryParse(value, out _))
             {
                 isValid = false;
-                Console.WriteLine("ERROR: Please enter a numeric card value.");
+                Console.WriteLine("ERROR: Invalid card value.");
             }
             else if (Convert.ToInt32(value) < 1 || Convert.ToInt32(value) > 13)
             {
                 isValid = false;
-                Console.WriteLine("ERROR: Please enter a number between 1 and 13.");
+                Console.WriteLine("ERROR: Please enter a card value between 1 and 13.");
             }
 
             // Card suits
@@ -568,7 +561,7 @@ namespace PokerGame
                     if (!(card is null))
                     {
                         // If the entered card has the same existing card.
-                        if ($"{ConvertValue(value)}{suit[0]}" == $"{card.GetCardValue()}{card.GetCardSuit()}")
+                        if ($"{ConvertValue(Convert.ToInt32(value))}{suit[0]}" == $"{card.CardValue}{card.CardSuit}")
                         {
                             isValid = false;
                             Console.WriteLine("ERROR: Card entered already exists.");
@@ -588,38 +581,68 @@ namespace PokerGame
 
         #region Value Conversions
         // Function to convert numbers to face cards or Ace.
-        private static string ConvertValue(string value)
-        {
-            switch (value)
-            {
-                case "1":
-                    return "A";
-                case "11":
-                    return "J";
-                case "12":
-                    return "Q";
-                case "13":
-                    return "K";
-                default:
-                    return value;
-            }
-        }
-
-        // Function to convert numeric value to suit characters.
-        private static string ConvertSuit(int num)
+        private static string ConvertValue(int num)
         {
             switch (num)
             {
                 case 1:
-                    return "C";
-                case 2:
-                    return "D";
-                case 3:
-                    return "H";
-                case 4:
-                    return "S";
+                    return "A";
+                case 11:
+                    return "J";
+                case 12:
+                    return "Q";
+                case 13:
+                    return "K";
                 default:
-                    return "X";
+                    return num.ToString();
+            }
+        }
+
+        // Function to convert numeric value to suit characters.
+        private static char ConvertSuit(int num)
+        {
+            switch (num)
+            {
+                case 1:
+                    return 'C';
+                case 2:
+                    return 'D';
+                case 3:
+                    return 'H';
+                case 4:
+                    return 'S';
+                default:
+                    return 'X';
+            }
+        }
+
+        // Function to convert numeric value to suit characters.
+        private static string ConvertPokerHand(int num)
+        {
+            switch (num)
+            {
+                case 10:
+                    return "Royal Flush";
+                case 9:
+                    return "Straight Flush";
+                case 8:
+                    return "Four of a Kind";
+                case 7:
+                    return "Full House";
+                case 6:
+                    return "Flush";
+                case 5:
+                    return "Straight";
+                case 4:
+                    return "Three of a Kind";
+                case 3:
+                    return "Two Pairs";
+                case 2:
+                    return "One Pair";
+                case 1:
+                    return "High Card";
+                default:
+                    return "Unknown";
             }
         }
         #endregion
