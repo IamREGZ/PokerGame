@@ -1,11 +1,11 @@
 ﻿using System;
+using System.Collections.Generic;
 
 namespace PokerGame
 {
     class Program
     {
         #region Fields
-        static Card[] cards;
         static readonly Random rand = new Random();
         #endregion
 
@@ -17,7 +17,7 @@ namespace PokerGame
             MenuNavigation(0);
         }
 
-        // Function to navigate the console to different screens.
+        // Method to navigate the console to different screens.
         private static void MenuNavigation(int menuCode)
         {
             string menuTitle = "";
@@ -34,7 +34,7 @@ namespace PokerGame
                     break;
                 case 1:
                     menuTitle = "PLAY GAME";
-                    menuOptions = new string[2] { "One Player - Pending", "Multiplayer - Pending" };
+                    menuOptions = new string[2] { "One Player - WIP", "Multiplayer - Pending" };
                     break;
                 case 2:
                     menuTitle = "GENERATE CARDS";
@@ -57,16 +57,9 @@ namespace PokerGame
                 Console.Write("Enter your command: ");
                 command = Console.ReadLine().Trim();
 
-                if (IsValidCommand(command, menuOptions.Length))
+                if (ValidateCommand(command, menuOptions.Length))
                 {
                     selected = Convert.ToInt32(command);
-
-                    if (menuCode == 2 && selected != 0)
-                    {
-                        // Temporary only
-                        cards = new Card[5];
-                        Console.WriteLine();
-                    }
 
                     switch (selected)
                     {
@@ -78,7 +71,8 @@ namespace PokerGame
                                     MenuNavigation(1);
                                     break;
                                 case 1:
-                                    // Main Menu > Play Game > One Player - Pending
+                                    // Main Menu > Play Game > One Player - WIP
+                                    GamePlay();
                                     break;
                                 case 2:
                                     // Main Menu > Generate Cards > Random Cards Generation
@@ -112,8 +106,6 @@ namespace PokerGame
                             }
                             break;
                     }
-
-                    if (menuCode == 2 && selected != 0) ShowHandResults();  // Temporary only
                 }
 
                 // Screen ends once the command entered is 0.
@@ -122,70 +114,131 @@ namespace PokerGame
         #endregion
 
         #region Play Game
+        // Method to process the whole gameplay.
+        private static void GamePlay()
+        {
+            Player[] players = new Player[2];
 
+            // Name entry
+            for (int i = 0; i < players.Length; i++)
+            {
+                if (i == 0)
+                {
+                    Console.Write("\nEnter your name: ");
+                    players[i] = new Human(Console.ReadLine().Trim());
+                    Console.WriteLine($"Hello {players[i].Name}!");
+                }
+                else
+                {
+                    players[i] = new Computer();
+                    Console.WriteLine($"Your opponent is {players[i].Name}.");
+                }
+            }
+
+            Console.WriteLine();
+
+            // Card selection
+            Card[] cardDeck = SetCardDeck();
+
+            for (int i = 0; i < 5; i++)
+            {
+                foreach (Player player in players)
+                {
+                    Card currentCard;
+
+                    if (player is Human)
+                    {
+                        while (true)
+                        {
+                            currentCard = SelectCard(ref cardDeck, i);
+
+                            if (!(currentCard is null))
+                            {
+                                break;
+                            }
+                            else
+                            {
+                                Console.WriteLine();
+                            }
+                        }
+                    }
+                    else
+                    {
+                        while (true)
+                        {
+                            int cardNum = rand.Next(0, cardDeck.Length);
+                            currentCard = new Card(cardDeck[cardNum].CardValue, cardDeck[cardNum].CardSuit);
+
+                            if (!CardAlreadySelected(currentCard))
+                            {
+                                cardDeck[cardNum] = MarkAsSelected(cardDeck[cardNum]);
+
+                                Console.WriteLine($"{player.Name} selected Card #{cardNum + 1}\n");
+                                break;
+                            }
+                        }
+                    }
+
+                    player.SetCard(i, currentCard);
+                }
+            }
+
+            // Display results
+            foreach (Player player in players)
+            {
+                ShowHandResults(player.Hand, player);
+            }
+        }
         #endregion
 
         #region Generate Cards
-        // Function to generate five random cards.
+        // Method to generate five random cards.
         private static void RandomGeneratedCards()
         {
-            cards = SetCardDeck(true);
+            Card[] cardHand = SetCardDeck(true);
+
+            Console.WriteLine();
+            ShowHandResults(cardHand);
         }
 
-        // Function to select five random cards.
+        // Method to select five random cards.
         private static void RandomCardSelection()
         {
-            Card[] cardDeck = SetCardDeck();
-            string selectedNumbers = "";
+            Card[] cardHand = new Card[5], cardDeck = SetCardDeck();
 
-            for (int i = 0; i < cards.Length; i++)
-            {
-                string selection = "";
-                bool isValid = false;
-
-                while (!isValid)
-                {
-                    Console.Write($"Enter a card number from 1 to 52 for Card #{i + 1}: ");
-                    selection = Console.ReadLine().Trim();
-
-                    if (selection == "")
-                    {
-                        Console.WriteLine("ERROR: Please enter your card number.\n");
-                        continue;
-                    }
-                    else if (!int.TryParse(selection, out _))
-                    {
-                        Console.WriteLine("ERROR: Invalid card number.\n");
-                        continue;
-                    }
-                    else if (Convert.ToInt32(selection) < 1 || Convert.ToInt32(selection) > 52)
-                    {
-                        Console.WriteLine("ERROR: Please enter a value from 1 to 52.\n");
-                        continue;
-                    }
-                    else if (selectedNumbers.Contains($"|{selection}|"))
-                    {
-                        Console.WriteLine("ERROR: Card number already selected.\n");
-                        continue;
-                    }
-
-                    isValid = true;
-                }
-
-                selectedNumbers = $"{(selectedNumbers.Length > 0 ? selectedNumbers : "|")}{selection}|";
-                cards[i] = cardDeck[Convert.ToInt32(selection) - 1];
-                Console.WriteLine();
-            }
-        }
-
-        // Function to enter five cards manually.
-        private static void ManualCardEntry()
-        {
-            Console.WriteLine("VALID CARD VALUES: 1-13 (1 = A; 11 = J; 12 = Q; 13 = K)");
-            Console.WriteLine("VALID CARD SUITS: C (Club), D (Diamond), H (Heart), S (Spade)");
             Console.WriteLine();
 
-            for (int i = 0; i < cards.Length; i++)
+            for (int i = 0; i < cardHand.Length; i++)
+            {
+                Card currentCard = SelectCard(ref cardDeck, i);
+
+                if (!(currentCard is null))
+                {
+                    // Add Card object to the array.
+                    cardHand[i] = currentCard;
+                }
+                else
+                {
+                    // If invalid, decrement the counter to try selecting the current card again.
+                    i--;
+                }
+
+                Console.WriteLine();
+            }
+
+            ShowHandResults(cardHand);
+        }
+
+        // Method to enter five cards manually.
+        private static void ManualCardEntry()
+        {
+            Card[] cardHand = new Card[5];
+
+            Console.WriteLine();
+            Console.WriteLine("VALID CARD VALUES: 1-13 (1 = A; 11 = J; 12 = Q; 13 = K)");
+            Console.WriteLine("VALID CARD SUITS: C (Club), D (Diamond), H (Heart), S (Spade)\n");
+
+            for (int i = 0; i < cardHand.Length; i++)
             {
                 string cardValue, cardSuit;
 
@@ -195,10 +248,10 @@ namespace PokerGame
                 Console.Write($"Enter card suit for Card #{i + 1}: ");
                 cardSuit = Console.ReadLine().ToUpper().Trim();
 
-                if (ValidateCard(cardValue, cardSuit))
+                if (ValidateCard(cardValue, cardSuit, cardHand))
                 {
                     // Add Card object to the array.
-                    cards[i] = new Card(ConvertValue(Convert.ToInt32(cardValue)), cardSuit[0].ToString());
+                    cardHand[i] = new Card(ConvertValue(Convert.ToInt32(cardValue)), cardSuit[0].ToString());
                 }
                 else
                 {
@@ -208,40 +261,33 @@ namespace PokerGame
 
                 Console.WriteLine();
             }
+
+            ShowHandResults(cardHand);
         }
         #endregion
 
         #region Generic Methods
-        // Function to set card deck in a randomized order.
-        private static Card[] SetCardDeck(bool isGenerated = false)
+        // Method to set card deck in a randomized order.
+        private static Card[] SetCardDeck(bool isHand = false)
         {
             string cardDeckInput = "";
-            int length = isGenerated ? 5 : 52;
-            Card[] cardDeck = new Card[length];
+            Card[] cardDeck = new Card[isHand ? 5 : 52];
 
-            for (int i = 0; i < length; i++)
+            for (int i = 0; i < cardDeck.Length; i++)
             {
                 string card = $"{ConvertValue((rand.Next(1, 14)))}|{ConvertSuit(rand.Next(1, 5))}";
 
-                if (i == 0)
+                // Checking for duplicates
+                if (!cardDeckInput.Contains(card))
                 {
-                    // First card
-                    cardDeckInput = card;
+                    // Append the card
+                    cardDeckInput = $"{cardDeckInput}{card}";
                 }
                 else
                 {
-                    // Checking for duplicates
-                    if (!cardDeckInput.Contains(card))
-                    {
-                        // Append the card
-                        cardDeckInput = $"{cardDeckInput}{card}";
-                    }
-                    else
-                    {
-                        // Try again if duplicate found
-                        i--;
-                        continue;
-                    }
+                    // Try again if duplicate found
+                    i--;
+                    continue;
                 }
 
                 cardDeck[i] = new Card(card.Split('|')[0], card.Split('|')[1]);
@@ -250,27 +296,64 @@ namespace PokerGame
             return cardDeck;
         }
 
-        // Function to display hand results after card generation.
-        private static void ShowHandResults()
+        // Method to process card selection.
+        private static Card SelectCard(ref Card[] cardDeck, int index)
         {
-            Console.Write("Your cards: ");
-            foreach (Card card in cards)
+            string selection;
+
+            Console.Write($"Enter a card number from 1 to 52 for Card #{index + 1}: ");
+            selection = Console.ReadLine().Trim();
+
+            if (ValidateSelectCard(selection, cardDeck))
+            {
+                int selected = Convert.ToInt32(selection) - 1;
+                Card selectedCard = new Card(cardDeck[selected].CardValue, cardDeck[selected].CardSuit);
+
+                cardDeck[selected] = MarkAsSelected(cardDeck[selected]);
+
+                return selectedCard;
+            }
+
+            return null;
+        }
+
+        // Method to check if the card in a deck is already selected.
+        private static bool CardAlreadySelected(Card card)
+        {
+            return $"{card.CardValue}{card.CardSuit}" == "XX";
+        }
+
+        // Method to mark the card as selected.
+        private static Card MarkAsSelected(Card selectedCard)
+        {
+            selectedCard.CardValue = "X";
+            selectedCard.CardSuit = "X";
+
+            return selectedCard;
+        }
+
+        // Method to display hand results after card generation.
+        private static void ShowHandResults(Card[] cardHand, Player player = null)
+        {
+            Console.Write($"{(!(player is null) ? $"{player.Name}\'s" : "Your")} cards: ");
+
+            foreach (Card card in cardHand)
             {
                 Console.Write($"{card.CardValue}{card.CardSuit} ");
             }
 
-            Console.WriteLine($"({ConvertPokerHand(RankPokerHand())})");
-            Console.ReadKey();
+            Console.Write($"({ConvertPokerHand(RankPokerHand(cardHand))})");
+            Console.ReadLine();
         }
         #endregion
 
         #region Poker Hand Methods
-        // Function to determine the poker hand.
-        private static int RankPokerHand()
+        // Method to determine the poker hand.
+        private static int RankPokerHand(Card[] cardHand)
         {
-            bool isStraight = CheckForStraight();
-            bool isFlush = CheckForFlush();
-            string[] valueCounters = CountValueCards();
+            bool isStraight = CheckForStraight(cardHand);
+            bool isFlush = CheckForFlush(cardHand);
+            string[] valueCounters = CountValueCards(cardHand);
 
             if (isStraight && isFlush)
             {
@@ -319,21 +402,21 @@ namespace PokerGame
             }
         }
 
-        // Function to check if the hand is straight.
-        private static bool CheckForStraight()
+        // Method to check if the hand is straight.
+        private static bool CheckForStraight(Card[] cardHand)
         {
             int currentValue = 0, endValue = 0;
 
             // Check if there's an ace (can be the lowest or highest).
-            if (SearchCardValue("A"))
+            if (SearchCardValue("A", cardHand))
             {
-                if (SearchCardValue("2"))
+                if (SearchCardValue("2", cardHand))
                 {
                     // A and 2 are in the hand.
                     currentValue = 3;
                     endValue = 5;
                 }
-                else if (SearchCardValue("K"))
+                else if (SearchCardValue("K", cardHand))
                 {
                     // A and K are in the hand.
                     currentValue = 10;
@@ -350,7 +433,7 @@ namespace PokerGame
                 // If there's no ace, search for the lowest card value.
                 for (int i = 2; i <= 13; i++)
                 {
-                    if (SearchCardValue(ConvertValue(i)))
+                    if (SearchCardValue(ConvertValue(i), cardHand))
                     {
                         currentValue = i + 1;
                         endValue = i + 4;
@@ -362,7 +445,7 @@ namespace PokerGame
             while (currentValue <= endValue)
             {
                 // Loop ends if the next expected card value didn't match or all five cards are in a succession.
-                if (SearchCardValue(ConvertValue(currentValue)))
+                if (SearchCardValue(ConvertValue(currentValue), cardHand))
                 {
                     currentValue++;
                 }
@@ -375,13 +458,13 @@ namespace PokerGame
             return true;
         }
 
-        // Function to check if the hand is flush.
-        private static bool CheckForFlush()
+        // Method to check if the hand is flush.
+        private static bool CheckForFlush(Card[] cardHand)
         {
             // Get the suit from the first card.
-            string suit = cards[0].CardSuit;
+            string suit = cardHand[0].CardSuit;
 
-            foreach (Card card in cards)
+            foreach (Card card in cardHand)
             {
                 // If there's a mismatch, it is not a flush.
                 if (card.CardSuit != suit) return false;
@@ -390,8 +473,8 @@ namespace PokerGame
             return true;
         }
 
-        // Function to count number of cards with that value.
-        private static string[] CountValueCards()
+        // Method to count number of cards with that value.
+        private static string[] CountValueCards(Card[] cardHand)
         {
             string valueCounters = "";
             int foundCards = 0;
@@ -402,7 +485,7 @@ namespace PokerGame
                 int valueCount = 0;  // Initial/reset value
                 string cardValue = ConvertValue(i);
 
-                foreach (Card card in cards)
+                foreach (Card card in cardHand)
                 {
                     if (card.CardValue == cardValue)
                     {
@@ -424,7 +507,7 @@ namespace PokerGame
             return valueCounters.Split(',');
         }
 
-        // Function to get the hierarchy of card values.
+        // Method to get the hierarchy of card values.
         private static string[] GetCardHierarchy(bool isStraight, string[] valueCounters)
         {
             string cardValueList = "";
@@ -471,7 +554,7 @@ namespace PokerGame
             return cardValueList.Split(',');
         }
 
-        // Function to check for possible pairs, threes or fours.
+        // Method to check for possible pairs, threes or fours.
         private static int CheckForMultiCards(string[] valueCounters, int valueCount)
         {
             int totalCount = 0;
@@ -484,10 +567,10 @@ namespace PokerGame
             return totalCount;
         }
 
-        // Function to search cards with that value.
-        private static bool SearchCardValue(string value)
+        // Method to search cards with that value.
+        private static bool SearchCardValue(string value, Card[] cardHand)
         {
-            foreach (Card card in cards)
+            foreach (Card card in cardHand)
             {
                 if (card.CardValue == value) return true;
             }
@@ -497,8 +580,8 @@ namespace PokerGame
         #endregion
 
         #region Validations
-        // Function to check if the command entered is valid.
-        private static bool IsValidCommand(string command, int menuOptions)
+        // Method to check if the command entered is valid.
+        private static bool ValidateCommand(string command, int menuOptions)
         {
             if (command == "")
             {
@@ -519,8 +602,8 @@ namespace PokerGame
             return true;
         }
 
-        // Function to validate cards.
-        private static bool ValidateCard(string value, string suit)
+        // Method to validate cards.
+        private static bool ValidateCard(string value, string suit, Card[] cardHand)
         {
             bool isValid = true;
 
@@ -556,7 +639,7 @@ namespace PokerGame
             // If both card values and suits are valid.
             if (isValid)
             {
-                foreach (Card card in cards)
+                foreach (Card card in cardHand)
                 {
                     if (!(card is null))
                     {
@@ -577,10 +660,37 @@ namespace PokerGame
 
             return isValid;
         }
+
+        // Method to validate selected card.
+        private static bool ValidateSelectCard(string selection, Card[] cardDeck)
+        {
+            if (selection == "")
+            {
+                Console.WriteLine("ERROR: Please enter your card number.");
+                return false;
+            }
+            else if (!int.TryParse(selection, out _))
+            {
+                Console.WriteLine("ERROR: Invalid card number.");
+                return false;
+            }
+            else if (Convert.ToInt32(selection) < 1 || Convert.ToInt32(selection) > 52)
+            {
+                Console.WriteLine("ERROR: Please enter a value from 1 to 52.");
+                return false;
+            }
+            else if (CardAlreadySelected(cardDeck[Convert.ToInt32(selection) - 1]))
+            {
+                Console.WriteLine("ERROR: Card number already selected.");
+                return false;
+            }
+
+            return true;
+        }
         #endregion
 
         #region Value Conversions
-        // Function to convert numbers to face cards or Ace.
+        // Method to convert numbers to face cards or Ace.
         private static string ConvertValue(int num)
         {
             switch (num)
@@ -598,7 +708,7 @@ namespace PokerGame
             }
         }
 
-        // Function to convert numeric value to suit characters.
+        // Method to convert numeric value to suit characters.
         private static char ConvertSuit(int num)
         {
             switch (num)
@@ -616,7 +726,7 @@ namespace PokerGame
             }
         }
 
-        // Function to convert numeric value to suit characters.
+        // Method to convert numeric value to suit characters.
         private static string ConvertPokerHand(int num)
         {
             switch (num)
