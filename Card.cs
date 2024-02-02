@@ -4,35 +4,20 @@ using System.Text;
 
 namespace PokerGame
 {
-    class Card
+    sealed class Card
     {
-        private string value;
-        private string suit;
+        #region Properties
+        public string CardValue { get; set; }
 
+        public string CardSuit { get; set; }
+        #endregion
+
+        #region Constructors
         public Card(string value, string suit)
         {
-            this.value = value;
-            this.suit = suit;
+            CardValue = value;
+            CardSuit = suit;
         }
-
-        public string GetCardValue()
-        {
-            return value;
-        }
-
-        public void SetCardValue(string value)
-        {
-            this.value = value;
-        }
-
-        public string GetCardSuit()
-        {
-            return suit;
-        }
-
-        public void SetCardSuit(string suit)
-        {
-            this.suit = suit;
-        }
+        #endregion
     }
 }
