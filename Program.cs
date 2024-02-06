@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Collections.Generic;
 
 namespace PokerGame
@@ -117,77 +118,173 @@ namespace PokerGame
         // Method to process the whole gameplay.
         private static void GamePlay()
         {
-            Player[] players = new Player[2];
+            Console.WriteLine();
 
-            // Name entry
-            for (int i = 0; i < players.Length; i++)
-            {
-                if (i == 0)
-                {
-                    Console.Write("\nEnter your name: ");
-                    players[i] = new Human(Console.ReadLine().Trim());
-                    Console.WriteLine($"Hello {players[i].Name}!");
-                }
-                else
-                {
-                    players[i] = new Computer();
-                    Console.WriteLine($"Your opponent is {players[i].Name}.");
-                }
-            }
+            Player[] players = CreatePlayers(2, 1);
 
             Console.WriteLine();
 
-            // Card selection
+            // Card intialization
             Card[] cardDeck = SetCardDeck();
 
+            // Card selection
             for (int i = 0; i < 5; i++)
             {
                 foreach (Player player in players)
                 {
-                    Card currentCard;
-
-                    if (player is Human)
+                    while (true)
                     {
-                        while (true)
-                        {
-                            currentCard = SelectCard(ref cardDeck, i);
+                        Card currentCard = SelectCard(ref cardDeck, i, player);
 
-                            if (!(currentCard is null))
-                            {
-                                break;
-                            }
-                            else
-                            {
-                                Console.WriteLine();
-                            }
+                        if (!(currentCard is null))
+                        {
+                            player.SetCard(i, currentCard);
+                            break;
                         }
                     }
-                    else
-                    {
-                        while (true)
-                        {
-                            int cardNum = rand.Next(0, cardDeck.Length);
-                            currentCard = new Card(cardDeck[cardNum].CardValue, cardDeck[cardNum].CardSuit);
-
-                            if (!CardAlreadySelected(currentCard))
-                            {
-                                cardDeck[cardNum] = MarkAsSelected(cardDeck[cardNum]);
-
-                                Console.WriteLine($"{player.Name} selected Card #{cardNum + 1}\n");
-                                break;
-                            }
-                        }
-                    }
-
-                    player.SetCard(i, currentCard);
                 }
             }
 
-            // Display results
-            foreach (Player player in players)
+            // Winner determination
+            int[] winningIndices = DetermineWinners(players);
+
+            // It is possible to have more than one winners
+            if (winningIndices.Length > 1)
             {
-                ShowHandResults(player.Hand, player);
+                string winningNames = "";
+
+                foreach (int i in winningIndices)
+                {
+                    winningNames = $"{(winningNames.Length > 0 ? $"{winningNames}, " : "")}{players[i].Name}";
+                }
+
+                Console.WriteLine($"{winningNames} are the winners.");
             }
+            else
+            {
+                Console.WriteLine($"{players[winningIndices[0]].Name} is the winner.");
+            }
+        }
+
+        // Method to initialize players.
+        private static Player[] CreatePlayers(int numPlayers, int numHumans)
+        {
+            Player[] players = new Player[numPlayers];
+
+            for (int i = 0; i < players.Length; i++)
+            {
+                if (i < numHumans)
+                {
+                    Console.Write("Enter your name: ");
+                    players[i] = new Human(Console.ReadLine().Trim());
+                    Console.WriteLine($"Hello {players[i].Name}!");  // Temporary
+                }
+                else
+                {
+                    players[i] = new Computer();
+                    Console.WriteLine($"Your opponent is {players[i].Name}.");  // Temporary
+                }
+            }
+
+            return players;
+        }
+
+        // Method to determine who is the winner of the round.
+        private static int[] DetermineWinners(Player[] players)
+        {
+            int[] handRankings = new int[players.Length];
+            List<int> winningIndices = new List<int>();
+            int highestRank;
+
+            // Display results
+            for (int i = 0; i < players.Length; i++)
+            {
+                handRankings[i] = RankPokerHand(players[i].Hand);
+
+                ShowHandResults(players[i].Hand, handRankings[i], players[i]);
+            }
+
+            highestRank = handRankings.Max();  // Determining the highest rank
+
+            // Getting all players who got the highest rank
+            for (int i = 0; i < handRankings.Length; i++)
+            {
+                if (handRankings[i] == highestRank)
+                {
+                    winningIndices.Add(i);
+                }
+            }
+
+            if (winningIndices.Count() > 1)
+            {
+                winningIndices = Tiebreaker(winningIndices, players, new int[] { 10, 9, 5 }.Contains(highestRank));
+            }
+
+            return winningIndices.ToArray<int>();
+        }
+
+        // Method to break a tie between two or more players with the best hands.
+        private static List<int> Tiebreaker(List<int> indices, Player[] players, bool isStraight)
+        {
+            List<string[]> cardHierarchies = new List<string[]>();
+            List<bool> playerWins = new List<bool>();
+            int currentIndex = 0;
+
+            // Store initial values
+            foreach (int index in indices)
+            {
+                cardHierarchies.Add(GetCardHierarchy(isStraight, CountValueCards(players[index].Hand)));
+                playerWins.Add(false);
+            }
+
+            // Loop ends when there's only one player remaining or the winning index reached the last card.
+            while (cardHierarchies.Count() > 1 && currentIndex < cardHierarchies.Count())
+            {
+                // Check if the players have ace in the current card.
+                playerWins = HasTheWinningCard("A", playerWins, cardHierarchies, currentIndex);
+
+                // If none found, proceed checking from King to 2.
+                if (playerWins.Count(x => x) == 0)
+                {
+                    for (int i = 13; i > 1; i--)
+                    {
+                        playerWins = HasTheWinningCard(ConvertValue(i), playerWins, cardHierarchies, currentIndex);
+
+                        // Stop finding if at least one player has the winning card value.
+                        if (playerWins.Count(x => x) > 0) break;
+                    }
+                }
+
+                // Eliminating players that don't have the winning card value.
+                if (playerWins.Count(x => x) > 0)
+                {
+                    for (int j = cardHierarchies.Count() - 1; j >= 0; j--)
+                    {
+                        if (!playerWins[j])
+                        {
+                            indices.RemoveAt(j);
+                            cardHierarchies.RemoveAt(j);
+                            playerWins.RemoveAt(j);
+                        }
+                    }
+                }
+
+                currentIndex++;
+            }
+
+            return indices;
+        }
+
+        // Method to determine if each player has the winning card value.
+        private static List<bool> HasTheWinningCard(string value, List<bool> playerWins,
+            List<string[]> hierarchies, int currentIndex)
+        {
+            for (int i = 0; i < playerWins.Count(); i++)
+            {
+                if (hierarchies[i][currentIndex] == value) playerWins[i] = true;
+            }
+
+            return playerWins;
         }
         #endregion
 
@@ -198,7 +295,7 @@ namespace PokerGame
             Card[] cardHand = SetCardDeck(true);
 
             Console.WriteLine();
-            ShowHandResults(cardHand);
+            ShowHandResults(cardHand, RankPokerHand(cardHand));
         }
 
         // Method to select five random cards.
@@ -222,11 +319,9 @@ namespace PokerGame
                     // If invalid, decrement the counter to try selecting the current card again.
                     i--;
                 }
-
-                Console.WriteLine();
             }
 
-            ShowHandResults(cardHand);
+            ShowHandResults(cardHand, RankPokerHand(cardHand));
         }
 
         // Method to enter five cards manually.
@@ -262,7 +357,7 @@ namespace PokerGame
                 Console.WriteLine();
             }
 
-            ShowHandResults(cardHand);
+            ShowHandResults(cardHand, RankPokerHand(cardHand));
         }
         #endregion
 
@@ -297,24 +392,45 @@ namespace PokerGame
         }
 
         // Method to process card selection.
-        private static Card SelectCard(ref Card[] cardDeck, int index)
+        private static Card SelectCard(ref Card[] cardDeck, int index, Player player = null)
         {
-            string selection;
+            Card selectedCard = null;
 
-            Console.Write($"Enter a card number from 1 to 52 for Card #{index + 1}: ");
-            selection = Console.ReadLine().Trim();
-
-            if (ValidateSelectCard(selection, cardDeck))
+            if (player is null || player is Human)
             {
-                int selected = Convert.ToInt32(selection) - 1;
-                Card selectedCard = new Card(cardDeck[selected].CardValue, cardDeck[selected].CardSuit);
+                string selection;
 
-                cardDeck[selected] = MarkAsSelected(cardDeck[selected]);
+                Console.Write($"Enter a card number from 1 to 52 for Card #{index + 1}: ");
+                selection = Console.ReadLine().Trim();
 
-                return selectedCard;
+                if (ValidateSelectCard(selection, cardDeck))
+                {
+                    int selected = Convert.ToInt32(selection) - 1;
+                    selectedCard = new Card(cardDeck[selected].CardValue, cardDeck[selected].CardSuit);
+
+                    cardDeck[selected] = MarkAsSelected(cardDeck[selected]);
+                }
+
+                Console.WriteLine();
+            }
+            else
+            {
+                int cardNum = rand.Next(0, cardDeck.Length);
+                selectedCard = new Card(cardDeck[cardNum].CardValue, cardDeck[cardNum].CardSuit);
+
+                if (!CardAlreadySelected(selectedCard))
+                {
+                    cardDeck[cardNum] = MarkAsSelected(cardDeck[cardNum]);
+
+                    Console.WriteLine($"{player.Name} selected Card #{cardNum + 1}\n");
+                }
+                else
+                {
+                    return null;
+                }
             }
 
-            return null;
+            return selectedCard;
         }
 
         // Method to check if the card in a deck is already selected.
@@ -333,7 +449,7 @@ namespace PokerGame
         }
 
         // Method to display hand results after card generation.
-        private static void ShowHandResults(Card[] cardHand, Player player = null)
+        private static void ShowHandResults(Card[] cardHand, int rankHand, Player player = null)
         {
             Console.Write($"{(!(player is null) ? $"{player.Name}\'s" : "Your")} cards: ");
 
@@ -342,7 +458,7 @@ namespace PokerGame
                 Console.Write($"{card.CardValue}{card.CardSuit} ");
             }
 
-            Console.Write($"({ConvertPokerHand(RankPokerHand(cardHand))})");
+            Console.Write($"({ConvertPokerHand(rankHand)})");
             Console.ReadLine();
         }
         #endregion
