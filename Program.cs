@@ -120,50 +120,80 @@ namespace PokerGame
         {
             Console.WriteLine();
 
+            int[] playerWins = new int[2];
+            int roundNumber = 1;
+            bool gameFinished = false;
+
+            // Players initialization
             Player[] players = CreatePlayers(2, 1);
 
             Console.WriteLine();
 
-            // Card intialization
-            Card[] cardDeck = SetCardDeck();
-
-            // Card selection
-            for (int i = 0; i < 5; i++)
+            while (!gameFinished)
             {
-                foreach (Player player in players)
-                {
-                    while (true)
-                    {
-                        Card currentCard = SelectCard(ref cardDeck, i, player);
+                Console.WriteLine($"ROUND {roundNumber}");
 
-                        if (!(currentCard is null))
+                // Shuffling of card deck
+                Card[] cardDeck = SetCardDeck();
+
+                // Card selection
+                for (int i = 0; i < 5; i++)
+                {
+                    foreach (Player player in players)
+                    {
+                        while (true)
                         {
-                            player.SetCard(i, currentCard);
-                            break;
+                            Card currentCard = SelectCard(ref cardDeck, i, player);
+
+                            if (!(currentCard is null))
+                            {
+                                player.SetCard(i, currentCard);
+                                break;
+                            }
                         }
                     }
                 }
-            }
 
-            // Winner determination
-            int[] winningIndices = DetermineWinners(players);
+                // Winner determination
+                int[] winningIndices = DetermineWinners(players);
 
-            // It is possible to have more than one winners
-            if (winningIndices.Length > 1)
-            {
+                // Displaying the winner(s)
                 string winningNames = "";
 
+                // It is possible to have more than one winners
                 foreach (int i in winningIndices)
                 {
                     winningNames = $"{(winningNames.Length > 0 ? $"{winningNames}, " : "")}{players[i].Name}";
                 }
 
-                Console.WriteLine($"{winningNames} are the winners.");
+                Console.WriteLine($"{winningNames} {(winningIndices.Length > 1 ? "are" : "is")} " +
+                    $"the winner{(winningIndices.Length > 1 ? "s" : "")} of this round!");
+
+                // Adding the point to the winner(s)
+                foreach (int index in winningIndices)
+                {
+                    players[index].Wins++;
+                    playerWins[index] = players[index].Wins;
+                }
+
+                // Displaying the statistics
+                Console.WriteLine("\nSTATISTICS (Race to 3)");
+
+                foreach (Player player in players)
+                {
+                    Console.WriteLine($"{player.Name}: {player.Wins}");
+                }
+
+                Console.ReadLine();
+
+                roundNumber++;
+
+                // Game is over if one player gets three or more wins, as long as the lead is at least one.
+                gameFinished = playerWins.Max() >= 3 && playerWins.Count(x => x == playerWins.Max()) == 1;
             }
-            else
-            {
-                Console.WriteLine($"{players[winningIndices[0]].Name} is the winner.");
-            }
+
+            Console.WriteLine($"GAME OVER: {players[Array.IndexOf(playerWins, playerWins.Max())].Name} " +
+                "is the winner of the game!");
         }
 
         // Method to initialize players.
