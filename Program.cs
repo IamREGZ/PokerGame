@@ -127,8 +127,6 @@ namespace PokerGame
             // Players initialization
             Player[] players = CreatePlayers(2, 1);
 
-            Console.WriteLine();
-
             while (!gameFinished)
             {
                 Console.WriteLine($"ROUND {roundNumber}");
@@ -169,6 +167,8 @@ namespace PokerGame
                 Console.WriteLine($"{winningNames} {(winningIndices.Length > 1 ? "are" : "is")} " +
                     $"the winner{(winningIndices.Length > 1 ? "s" : "")} of this round!");
 
+                Console.ReadLine();
+
                 // Adding the point to the winner(s)
                 foreach (int index in winningIndices)
                 {
@@ -177,7 +177,7 @@ namespace PokerGame
                 }
 
                 // Displaying the statistics
-                Console.WriteLine("\nSTATISTICS (Race to 3)");
+                Console.WriteLine("STATISTICS (Race to 3)");
 
                 foreach (Player player in players)
                 {
@@ -190,6 +190,9 @@ namespace PokerGame
 
                 // Game is over if one player gets three or more wins, as long as the lead is at least one.
                 gameFinished = playerWins.Max() >= 3 && playerWins.Count(x => x == playerWins.Max()) == 1;
+
+                // Rearrange only if the game is not yet finished.
+                if (!gameFinished) players = ReorderPlayers(players);
             }
 
             Console.WriteLine($"GAME OVER: {players[Array.IndexOf(playerWins, playerWins.Max())].Name} " +
@@ -200,14 +203,14 @@ namespace PokerGame
         private static Player[] CreatePlayers(int numPlayers, int numHumans)
         {
             Player[] players = new Player[numPlayers];
-
+            
+            // Player creation
             for (int i = 0; i < players.Length; i++)
             {
                 if (i < numHumans)
                 {
                     Console.Write("Enter your name: ");
                     players[i] = new Human(Console.ReadLine().Trim());
-                    Console.WriteLine($"Hello {players[i].Name}!");  // Temporary
                 }
                 else
                 {
@@ -216,7 +219,153 @@ namespace PokerGame
                 }
             }
 
+            return ReorderPlayers(players, true);
+        }
+
+        // Method to rearrange the first player in the round as the last player.
+        private static Player[] ReorderPlayers(Player[] players, bool isStart = false)
+        {
+            if (isStart)
+            {
+                players = DeterminePlayerOrder(players);
+            }
+            else
+            {
+                // The first player in the round will be the last one to play in the next round.
+                Player tempPlayer = players[0];
+                Array.Copy(players, 1, players, 0, players.Length - 1);
+                players[^1] = tempPlayer;
+            }
+
             return players;
+        }
+
+        // Method to determine playing order based on the card value selected.
+        private static Player[] DeterminePlayerOrder(Player[] players)
+        {
+            int length = players.Length, currentIndex = 0;
+            Player[] currentPlayerList = players;
+
+            Player[] orderedPlayers = new Player[length];
+            List<string> cardValues = new List<string>();
+            List<Player[]> playerGroup = new List<Player[]>(), tempGroup = new List<Player[]>();
+
+            Card[] cardDeck = SetCardDeck();
+
+            Console.WriteLine("\nORDER DETERMINATION");
+
+            while (currentIndex != -1)
+            {
+                // Card selection
+                foreach (Player player in currentPlayerList)
+                {
+                    while (true)
+                    {
+                        Card currentCard = SelectCard(ref cardDeck, player: player);
+
+                        if (!(currentCard is null))
+                        {
+                            cardValues.Add(currentCard.CardValue);
+                            break;
+                        }
+                    }
+                }
+
+                // Displaying selected card values
+                for (int i = 0; i < length; i++)
+                {
+                    Console.Write($"{currentPlayerList[i].Name}\'s card value is {cardValues[i]}.");
+                    Console.ReadLine();
+                }
+                
+                // Grouping players by card value
+                if (cardValues.Contains("A"))
+                {
+                    playerGroup.Add(GroupPlayersByValue("A", currentPlayerList, cardValues));
+                }
+
+                for (int j = 13; j > 1; j--)
+                {
+                    if (cardValues.Contains(ConvertValue(j)))
+                    {
+                        playerGroup.Add(GroupPlayersByValue(ConvertValue(j), currentPlayerList, cardValues));
+                    }
+
+                    // Stopping the loop after all players are grouped.
+                    if (playerGroup.Sum(x => x.Length) == length) break;
+                }
+
+                // Adding the remaining groups from the earlier list
+                playerGroup.AddRange(tempGroup);
+                
+                // Ordering the players
+                foreach (Player[] group in playerGroup)
+                {
+                    if (group.Length == 1)
+                    {
+                        orderedPlayers[currentIndex] = group[0];
+                    }
+
+                    currentIndex += group.Length;
+                }
+
+                Console.WriteLine("\nPLAYING ORDER");
+
+                int counter = 0, groupIndex = 0;
+                List<Player[]> tempTiedGroups = playerGroup.FindAll(x => x.Length > 1);
+
+                // Displaying the playing order
+                while (counter < orderedPlayers.Length)
+                {
+                    if (!(orderedPlayers[counter] is null))
+                    {
+                        Console.WriteLine($"{counter + 1}. {orderedPlayers[counter].Name}");
+                        counter++;
+                    }
+                    else
+                    {
+                        Player[] tiedGroup = tempTiedGroups[groupIndex];
+
+                        foreach (Player player in tiedGroup)
+                        {
+                            Console.WriteLine($"{counter + 1}. {player.Name} (TIE)");
+                        }
+
+                        counter += tiedGroup.Length;
+                        groupIndex++;
+                    }
+                }
+
+                Console.ReadLine();
+
+                // Re-assigning variables
+                playerGroup.RemoveAll(x => x.Length == 1);
+                currentPlayerList = playerGroup.Count() > 0 ? playerGroup[0] : Array.Empty<Player>();
+                length = currentPlayerList.Length;
+                tempGroup = playerGroup.Skip(1).ToList<Player[]>();
+
+                // Clearing lists
+                playerGroup.Clear();
+                cardValues.Clear();
+
+                // Loop ends if all players have their definite playing orders (no ties).
+                currentIndex = Array.IndexOf(orderedPlayers, null);
+            }
+
+            return orderedPlayers;
+        }
+
+        // Method to group players by card value for determining the playing order.
+        private static Player[] GroupPlayersByValue(string value, Player[] players, List<string> cardValues)
+        {
+            List<Player> groupedPlayers = new List<Player>();
+
+            for (int i = 0; i < players.Length; i++)
+            {
+                if (cardValues[i] == value) groupedPlayers.Add(players[i]);
+            }
+
+            return groupedPlayers.ToArray();
         }
 
         // Method to determine who is the winner of the round.
@@ -268,17 +417,17 @@ namespace PokerGame
             }
 
             // Loop ends when there's only one player remaining or the winning index reached the last card.
-            while (cardHierarchies.Count() > 1 && currentIndex < cardHierarchies.Count())
+            while (cardHierarchies.Count() > 1 && currentIndex < cardHierarchies[0].Length)
             {
                 // Check if the players have ace in the current card.
-                playerWins = HasTheWinningCard("A", playerWins, cardHierarchies, currentIndex);
+                playerWins = HasTheHighestCard("A", playerWins, cardHierarchies, currentIndex);
 
                 // If none found, proceed checking from King to 2.
                 if (playerWins.Count(x => x) == 0)
                 {
                     for (int i = 13; i > 1; i--)
                     {
-                        playerWins = HasTheWinningCard(ConvertValue(i), playerWins, cardHierarchies, currentIndex);
+                        playerWins = HasTheHighestCard(ConvertValue(i), playerWins, cardHierarchies, currentIndex);
 
                         // Stop finding if at least one player has the winning card value.
                         if (playerWins.Count(x => x) > 0) break;
@@ -306,12 +455,12 @@ namespace PokerGame
         }
 
         // Method to determine if each player has the winning card value.
-        private static List<bool> HasTheWinningCard(string value, List<bool> playerWins,
+        private static List<bool> HasTheHighestCard(string value, List<bool> playerWins,
             List<string[]> hierarchies, int currentIndex)
         {
             for (int i = 0; i < playerWins.Count(); i++)
             {
-                if (hierarchies[i][currentIndex] == value) playerWins[i] = true;
+                playerWins[i] = hierarchies[i][currentIndex] == value;
             }
 
             return playerWins;
@@ -422,7 +571,7 @@ namespace PokerGame
         }
 
         // Method to process card selection.
-        private static Card SelectCard(ref Card[] cardDeck, int index, Player player = null)
+        private static Card SelectCard(ref Card[] cardDeck, int index = 0, Player player = null)
         {
             Card selectedCard = null;
 
@@ -452,7 +601,9 @@ namespace PokerGame
                 {
                     cardDeck[cardNum] = MarkAsSelected(cardDeck[cardNum]);
 
-                    Console.WriteLine($"{player.Name} selected Card #{cardNum + 1}\n");
+                    Console.WriteLine($"{player.Name} selected Card #{cardNum + 1}");
+
+                    Console.ReadLine();
                 }
                 else
                 {
