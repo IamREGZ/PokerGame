@@ -8,6 +8,7 @@ namespace PokerGame
     {
         #region Fields
         static readonly Random rand = new Random();
+        static bool isMultiplayer = false;
         #endregion
 
         #region Main Program
@@ -35,7 +36,7 @@ namespace PokerGame
                     break;
                 case 1:
                     menuTitle = "PLAY GAME";
-                    menuOptions = new string[2] { "One Player - WIP", "Multiplayer - Pending" };
+                    menuOptions = new string[2] { "One Player - WIP", "Multiplayer - WIP" };
                     break;
                 case 2:
                     menuTitle = "GENERATE CARDS";
@@ -73,6 +74,7 @@ namespace PokerGame
                                     break;
                                 case 1:
                                     // Main Menu > Play Game > One Player - WIP
+                                    isMultiplayer = false;
                                     GamePlay();
                                     break;
                                 case 2:
@@ -89,7 +91,9 @@ namespace PokerGame
                                     MenuNavigation(2);
                                     break;
                                 case 1:
-                                    // Main Menu > Play Game > Multiplayer - Pending
+                                    // Main Menu > Play Game > Multiplayer - WIP
+                                    isMultiplayer = true;
+                                    GamePlay();
                                     break;
                                 case 2:
                                     // Main Menu > Generate Cards > Random Cards Selection
@@ -120,12 +124,15 @@ namespace PokerGame
         {
             Console.WriteLine();
 
-            int[] playerWins = new int[2];
+            Rules rules = new Rules();
+            rules.SetRules(isMultiplayer);
+
+            int[] playerWins = new int[rules.Players];
             int roundNumber = 1;
             bool gameFinished = false;
 
             // Players initialization
-            Player[] players = CreatePlayers(2, 1);
+            Player[] players = CreatePlayers(rules.Players, rules.Humans);
 
             while (!gameFinished)
             {
@@ -164,8 +171,7 @@ namespace PokerGame
                     winningNames = $"{(winningNames.Length > 0 ? $"{winningNames}, " : "")}{players[i].Name}";
                 }
 
-                Console.WriteLine($"{winningNames} {(winningIndices.Length > 1 ? "are" : "is")} " +
-                    $"the winner{(winningIndices.Length > 1 ? "s" : "")} of this round!");
+                Console.WriteLine($"Winner{(winningIndices.Length > 1 ? "s" : "")} of this round: {winningNames}");
 
                 Console.ReadLine();
 
@@ -177,7 +183,7 @@ namespace PokerGame
                 }
 
                 // Displaying the statistics
-                Console.WriteLine("STATISTICS (Race to 3)");
+                Console.WriteLine($"STATISTICS (Race to {rules.MaxWins})");
 
                 foreach (Player player in players)
                 {
@@ -188,36 +194,45 @@ namespace PokerGame
 
                 roundNumber++;
 
-                // Game is over if one player gets three or more wins, as long as the lead is at least one.
-                gameFinished = playerWins.Max() >= 3 && playerWins.Count(x => x == playerWins.Max()) == 1;
+                // Game is over if a player gets the target number of wins or more, as long as the lead is at least one.
+                gameFinished = playerWins.Max() >= rules.MaxWins && playerWins.Count(x => x == playerWins.Max()) == 1;
 
                 // Rearrange only if the game is not yet finished.
                 if (!gameFinished) players = ReorderPlayers(players);
             }
 
             Console.WriteLine($"GAME OVER: {players[Array.IndexOf(playerWins, playerWins.Max())].Name} " +
-                "is the winner of the game!");
+                "wins the game!");
+
+            isMultiplayer = false;  // Reset to default value after the game.
         }
 
         // Method to initialize players.
         private static Player[] CreatePlayers(int numPlayers, int numHumans)
         {
             Player[] players = new Player[numPlayers];
+
+            List<string> nameList = new string[] { "Alex", "Anne", "Ben", "Belle", "Chris", "Carla", "Daniel", "Donna", "Edward", "Eve", "Frank", "Faye", "George", "Gina", "Harold", "Hailey", "Ivan", "Ingrid", "Josh", "Josie", "Kevin", "Kath", "Leo", "Louise", "Mark", "Maddie", "Nathan", "Nina", "Oliver", "Olga", "Paul", "Pearl", "Quincy", "Queenie", "Ron", "Rita", "Steven", "Shane", "Ted", "Tricia", "Ulysses", "Ursula", "Victor", "Vera", "Willy", "Wanda", "Xavier", "Xandra", "Young", "Yelena", "Zack", "Zoe" }.ToList();
+
+            string opponents = "";
             
             // Player creation
             for (int i = 0; i < players.Length; i++)
             {
                 if (i < numHumans)
                 {
-                    Console.Write("Enter your name: ");
-                    players[i] = new Human(Console.ReadLine().Trim());
+                    Console.Write($"Enter player name{(isMultiplayer ? $" for Player #{i + 1}" : "")}: ");
+                    players[i] = new Human(Console.ReadLine().Trim(), i + 1);
                 }
                 else
                 {
-                    players[i] = new Computer();
-                    Console.WriteLine($"Your opponent is {players[i].Name}.");  // Temporary
+                    players[i] = new Computer(ref nameList);
+                    opponents = $"{(opponents.Length > 0 ? $"{opponents}, " : "")}{players[i].Name}";
                 }
             }
+
+            // Display only if there are any computers.
+            if (opponents != "") Console.WriteLine($"Opponents: {opponents}");
 
             return ReorderPlayers(players, true);
         }
@@ -261,7 +276,7 @@ namespace PokerGame
                 {
                     while (true)
                     {
-                        Card currentCard = SelectCard(ref cardDeck, player: player);
+                        Card currentCard = SelectCard(ref cardDeck, player: player, isStart: true);
 
                         if (!(currentCard is null))
                         {
@@ -571,7 +586,7 @@ namespace PokerGame
         }
 
         // Method to process card selection.
-        private static Card SelectCard(ref Card[] cardDeck, int index = 0, Player player = null)
+        private static Card SelectCard(ref Card[] cardDeck, int index = 0, Player player = null, bool isStart = false)
         {
             Card selectedCard = null;
 
@@ -579,7 +594,7 @@ namespace PokerGame
             {
                 string selection;
 
-                Console.Write($"Enter a card number from 1 to 52 for Card #{index + 1}: ");
+                Console.Write($"{(isMultiplayer ? $"({player.Name}) " : "")}Enter card number{(!isStart ? $" for Card #{index + 1}" : "")} (1-52): ");
                 selection = Console.ReadLine().Trim();
 
                 if (ValidateSelectCard(selection, cardDeck))
@@ -632,7 +647,7 @@ namespace PokerGame
         // Method to display hand results after card generation.
         private static void ShowHandResults(Card[] cardHand, int rankHand, Player player = null)
         {
-            Console.Write($"{(!(player is null) ? $"{player.Name}\'s" : "Your")} cards: ");
+            Console.Write($"{(isMultiplayer || player is Computer ? $"{player.Name}\'s" : "Your")} cards: ");
 
             foreach (Card card in cardHand)
             {

@@ -7,9 +7,9 @@ namespace PokerGame
     class Human : Player
     {
         #region Constructors
-        public Human(string name)
+        public Human(string name, int playerNum)
         {
-            Name = (name != "") ? name : "Player";
+            Name = (name != "") ? name : $"Player {playerNum}";
         }
         #endregion
     }
