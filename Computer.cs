@@ -7,19 +7,20 @@ namespace PokerGame
     class Computer : Player
     {
         #region Constructors
-        public Computer()
+        public Computer(List<string> names)
         {
-            Name = SetComputerName();
+            Name = SetComputerName(names);
         }
         #endregion
 
         #region Methods
-        private string SetComputerName()
+        private string SetComputerName(List<string> names)
         {
             Random rand = new Random();
-            string[] names = { "Alex", "Ben", "Chris", "Daniel", "Edward" };
+            string name = names[rand.Next(0, names.Count)];
+            names.Remove(name);  // To avoid duplicate computer names.
 
-            return names[rand.Next(0, names.Length)];
+            return name;
         }
         #endregion
     }
