@@ -7,14 +7,14 @@ namespace PokerGame
     class Computer : Player
     {
         #region Constructors
-        public Computer(ref List<string> names)
+        public Computer(List<string> names)
         {
-            Name = SetComputerName(ref names);
+            Name = SetComputerName(names);
         }
         #endregion
 
         #region Methods
-        private string SetComputerName(ref List<string> names)
+        private string SetComputerName(List<string> names)
         {
             Random rand = new Random();
             string name = names[rand.Next(0, names.Count)];
